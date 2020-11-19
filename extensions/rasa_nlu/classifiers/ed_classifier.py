@@ -27,9 +27,11 @@ from rasa_nlu.training_data import TrainingData
 
 #################
 import requests
+# from langdetect import detect
 
 
-print('ED CLASSIFIER v2')
+
+print('ED CLASSIFIER v4 external ip')
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +82,7 @@ class flask_serving_classifier(Component):
         self.clf = clf
 
         _sklearn_numpy_warning_fix()
+        print('CLASS INI')
 
     @classmethod
     def required_packages(cls):
@@ -129,14 +132,14 @@ class flask_serving_classifier(Component):
 
             categories = [i for i in set(y)]
             model_name = 'datetime'
-            host = '172.17.0.5'
+            host = "185.190.206.134" #'172.17.0.5'
             port = 9000
             url = f'http://{host}:{port}/train'
             data = {'text': X, 'labels': y, 'unique_labels': categories}
             print('ED DATA', data)
             tr = requests.put(url, json=data)  ###train
-            print(tr.json())
-            self.clf = model_name
+#            print(tr.json())
+            self.clf = SVC()
 
             # self.clf = self._create_classifier(num_threads, y)
 
@@ -154,7 +157,7 @@ class flask_serving_classifier(Component):
             intent = None
             intent_ranking = []
         else:
-            print('ED message', message)
+            print('ED message', message.text)
             #
             # attrs = vars(message)
             # print(', '.join("%s: %s" % item for item in attrs.items()))
@@ -183,7 +186,9 @@ class flask_serving_classifier(Component):
             else:
                 intent = {"name": None, "confidence": 0.0}
                 intent_ranking = []
-
+#         lang = detect(X[0])
+#         print('LANGUAGE IS ', lang)
+#         message.data['lang']= lang
         message.set("intent", intent, add_to_output=True)
         message.set("intent_ranking", intent_ranking, add_to_output=True)
 
@@ -195,7 +200,7 @@ class flask_serving_classifier(Component):
 
         :param X: bow of input text
         :return: vector of probabilities containing one entry for each label"""
-        data = {'text': X,'labels':[], 'unique_labels':[]}
+        data = {'text': [X],'labels':[], 'unique_labels':[]}
         host = '172.17.0.5'
         port = 9000
         url = f'http://{host}:{port}/predict'
@@ -214,6 +219,7 @@ class flask_serving_classifier(Component):
                  its probability."""
 
         pred_result = self.predict_prob(X)
+        print('predict_shape', pred_result.shape, '/n',pred_result)
         # sort the probabilities retrieving the indices of
         # the elements in sorted order
         sorted_indices = np.fliplr(np.argsort(pred_result, axis=1))
@@ -227,7 +233,8 @@ class flask_serving_classifier(Component):
              **kwargs  # type: **Any
              ):
         # type: (...) -> SklearnIntentClassifier
-
+        print('ED TRYING TO LOAD MODEL')
+        logger.warn('ED TRYING TO LOAD MODEL - LOGGER')
         meta = model_metadata.for_component(cls.name)
         file_name = meta.get("classifier_file", SKLEARN_MODEL_FILE_NAME)
         classifier_file = os.path.join(model_dir, file_name)
@@ -244,4 +251,5 @@ class flask_serving_classifier(Component):
         classifier_file = os.path.join(model_dir, SKLEARN_MODEL_FILE_NAME)
         utils.pycloud_pickle(classifier_file, self)
         return {"classifier_file": SKLEARN_MODEL_FILE_NAME}
+
 
